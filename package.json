@@ -1,0 +1,16 @@
+{
+  "name": "sunder",
+  "version": "1.0.0",
+  "description": "Sunder \u2014 offline trading risk & position-size calculator PWA (gold lots, crypto USDT, trade management).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "node scripts/serve.js",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}
