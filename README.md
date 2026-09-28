@@ -10,11 +10,11 @@
 
 ## Install on your phone
 
-The app must be served over HTTPS. The easiest way is GitHub Pages:
+The app must be served over HTTPS. GitHub Pages does this for free:
 
-1. Merge this branch into `main`.
-2. In the repository settings open **Pages** and set **Source** to **GitHub Actions** (one-time).
-3. The `Deploy to GitHub Pages` workflow publishes the app at `https://<your-user>.github.io/Sunder/`.
+1. GitHub Pages needs a **public** repository (or a GitHub Pro plan for private ones). If the repo is private, make it public in Settings → General → Danger Zone, or upgrade.
+2. Every push to `main` runs the `Deploy to GitHub Pages` workflow, which tests the app and publishes the built site to the `gh-pages` branch. GitHub usually enables Pages automatically for that branch. If it doesn't, open Settings → Pages and set **Source** to **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`.
+3. The app is then live at `https://<your-user>.github.io/Sunder/`.
 4. Open that URL on your phone:
    - **iPhone:** Safari → Share → **Add to Home Screen**.
    - **Android:** Chrome → ⋮ menu → **Add to Home screen** / **Install app**. Screenshots can then be sent to Sunder straight from the share sheet.
