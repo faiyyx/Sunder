@@ -205,3 +205,14 @@ progress { width: 100%; height: 6px; accent-color: var(--gold); }
 @media (min-width: 720px) {
   main { padding-top: 20px; }
 }
+
+/* Live prices */
+.live { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.live.is-live .dot { background: var(--green); box-shadow: 0 0 0 3px rgba(34,197,94,.2); }
+.live.is-connecting .dot { background: var(--amber); }
+.live.is-offline .dot, .live.is-unavailable .dot { background: var(--muted); }
+.live .lp { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.live .chip { padding: 2px 9px; font-size: 12px; }
+.livestatus { margin-top: 6px; }
+.tline .lp { color: var(--text); font-weight: 600; }

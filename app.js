@@ -6,6 +6,8 @@ import { assess, buildPlan, remainingSize, realizedPnl } from './src/manage.js';
 import { fmtPrice, fmtMoney, fmtSigned, fmtLots, fmtQty, fmtPct, fmtR } from './src/format.js';
 import { loadSettings, saveSettings, loadTrades, saveTrades, newId, exportAll, importAll, clearAll } from './src/store.js';
 import { recognizeImage, ocrPackCached, downloadOcrPack, warmOcr } from './src/ocr.js';
+import { watchPrice, stopAllPrices, liveSourceLabels } from './src/prices.js';
+import { priceDecimals } from './src/format.js';
 
 const APP_VERSION = '1.0.0 (__BUILD__)';
 const $ = (id) => document.getElementById(id);
@@ -30,6 +32,9 @@ const state = {
   managePrice: '',
   deferredInstall: null,
   swReg: null,
+  live: { sub: null, symbol: null, price: null, status: 'idle', source: null, approx: false, autoFilled: null },
+  mLive: { sub: null, tradeId: null, price: null, status: 'idle', source: null, approx: false, paused: false, reason: '' },
+  listSubs: [],
 };
 
 const cur = () => state.settings.currency || '$';
@@ -61,6 +66,7 @@ function init() {
   setupInstall();
   registerSW();
   handleUrlParams();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopAllLive(); else resumeLiveForView(); });
 }
 
 function updateNetPill() {
@@ -87,6 +93,8 @@ function showTab(name) {
   state.tab = name;
   document.querySelectorAll('.tab').forEach((s) => s.classList.toggle('active', s.id === `tab-${name}`));
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  if (name !== 'size') stopFormLive(); else syncFormLive();
+  if (name !== 'manage') { stopManageLive(); stopListLive(); }
   if (name === 'manage') renderManage();
   if (name === 'settings') refreshOcrPackStatus();
   window.scrollTo({ top: 0 });
@@ -125,6 +133,7 @@ function bindSizeTab() {
   $('signalPicker').addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; applyCandidate(Number(c.dataset.i), true); });
   $('btnSave').addEventListener('click', saveTrade);
   $('btnCopy').addEventListener('click', copySummary);
+  $('liveBadge').addEventListener('click', (e) => { const c = e.target.closest('[data-use]'); if (!c || state.live.price == null) return; const v = liveValueString(state.live.price, [num(state.form.entry), num(state.form.sl)]); state.form.entry = v; $('fEntry').value = v; renderEntryChips(); compute(); });
 }
 
 const persistRisk = debounce(() => { const r = num(state.form.risk); if (r) { state.settings.lastRisk = r; saveSettings(state.settings); } }, 400);
@@ -153,7 +162,7 @@ function clearSignal() {
   state.candidates = []; state.chosen = -1; state.filledSig = ''; state.parsed = null;
   const f = state.form;
   Object.assign(f, { symbol: '', instrument: null, entry: '', entryRange: null, sl: '', tps: [] });
-  writeForm(); renderPicker(); showFlags([]); compute();
+  writeForm(); renderPicker(); showFlags([]); compute(); syncFormLive();
   $('sigText').focus();
 }
 
@@ -273,6 +282,7 @@ function fillForm(p) {
   writeForm();
   showFlags(p.flags, p);
   compute();
+  syncFormLive();
 }
 
 function onSymbolTyped() {
@@ -283,7 +293,7 @@ function onSymbolTyped() {
   const inst = instrumentForSymbol(v);
   f.instrument = inst;
   if (inst) { f.kind = inst.kind; f.contractSize = String(contractFor(inst)); if (inst.kind === 'usdt' && !num(f.leverage)) f.leverage = String(state.settings.crypto.leverage || 1); }
-  writeForm(); compute();
+  writeForm(); compute(); syncFormLive();
 }
 
 function setKind(k) {
@@ -533,6 +543,7 @@ function updateOpenCount() {
 /* ---------------------------------------------------------------- manage tab */
 function renderManage() {
   const view = $('manageView');
+  stopManageLive(); stopListLive();
   const t = state.manageId ? state.trades.find((x) => x.id === state.manageId) : null;
   if (t) renderTradeDetail(view, t); else renderTradeList(view);
 }
@@ -557,12 +568,13 @@ function renderTradeList(view) {
     const pnl = realizedPnl(t);
     return `<div class="card tradecard" data-id="${t.id}"><div class="thead">${tradeTitle(t)}<span class="muted small" style="margin-left:auto">${new Date(t.createdAt).toLocaleDateString()}</span></div>
       <div class="tline">${sizeLabel(t, t.status === 'open' ? rem : t.size)} @ ${fmtPrice(t.entry, refs)} · SL ${fmtPrice(t.currentSl, refs)}${t.currentSl !== t.sl ? ' <span class="pos">(moved)</span>' : ''}${t.tps.length ? ` · TP ${t.tps.map((p) => fmtPrice(p, refs)).join(' / ')}` : ''}</div>
-      <div class="tline">Risk ${fmtMoney(t.risk, c)} · ${done}/${plan.length} steps done${pnl ? ` · realized <span class="${pnl >= 0 ? 'pos' : 'neg'}">${fmtSigned(pnl, c)}</span>` : ''}${t.status !== 'open' && t.closePrice ? ` · closed @ ${fmtPrice(t.closePrice, refs)}` : ''}</div></div>`;
+      <div class="tline">Risk ${fmtMoney(t.risk, c)} · ${done}/${plan.length} steps done${pnl ? ` · realized <span class="${pnl >= 0 ? 'pos' : 'neg'}">${fmtSigned(pnl, c)}</span>` : ''}${t.status !== 'open' && t.closePrice ? ` · closed @ ${fmtPrice(t.closePrice, refs)}` : ''}</div>${t.status === 'open' ? `<div class="tline" data-live-line="${t.id}"></div>` : ''}</div>`;
   };
   if (open.length) html += `<div class="section-title">Open (${open.length})</div>` + open.map(item).join('');
   if (closed.length) html += `<div class="section-title">History (${closed.length})</div>` + closed.slice(0, 30).map(item).join('');
   view.innerHTML = html;
   view.querySelectorAll('.tradecard').forEach((el) => el.addEventListener('click', () => { state.manageId = el.dataset.id; state.managePrice = ''; renderManage(); window.scrollTo({ top: 0 }); }));
+  startListLive(open);
 }
 
 function renderTradeDetail(view, t) {
@@ -577,6 +589,7 @@ function renderTradeDetail(view, t) {
     ${t.status === 'open' ? `<div class="card"><label for="mPrice">Current price</label>
       <input id="mPrice" type="text" inputmode="decimal" class="big-input" style="max-width:100%;width:100%" placeholder="what is ${esc(t.symbol)} trading at?" autocomplete="off" value="${esc(state.managePrice)}">
       <div class="chips small" id="mChips">${[['entry', t.entry], ...t.tps.map((p, i) => [`TP${i + 1}`, p]), ['stop', t.currentSl]].map(([l, v]) => `<button type="button" class="chip" data-v="${v}">${l} ${fmtPrice(v, refs)}</button>`).join('')}</div>
+      <div id="mLiveStatus" class="live livestatus hidden"></div>
     </div>` : ''}
     <div id="mDynamic"></div>
     <div class="row wrap">
@@ -588,9 +601,11 @@ function renderTradeDetail(view, t) {
   if ($('btnReopen')) $('btnReopen').addEventListener('click', () => { t.status = 'open'; delete t.closedAt; delete t.closePrice; if (t.partials.length && t.partials[t.partials.length - 1].final) t.partials.pop(); saveTrades(state.trades); updateOpenCount(); renderManage(); });
   if (t.status === 'open') {
     const inp = $('mPrice');
-    inp.addEventListener('input', () => { state.managePrice = inp.value; renderDynamic(t); });
-    $('mChips').addEventListener('click', (e) => { const ch = e.target.closest('.chip'); if (!ch) return; state.managePrice = ch.dataset.v; inp.value = ch.dataset.v; renderDynamic(t); });
-    if (!state.managePrice) setTimeout(() => inp.focus(), 50);
+    inp.addEventListener('input', () => { state.managePrice = inp.value; pauseManageLive(); renderDynamic(t); });
+    $('mChips').addEventListener('click', (e) => { const ch = e.target.closest('.chip'); if (!ch) return; state.managePrice = ch.dataset.v; inp.value = ch.dataset.v; pauseManageLive(); renderDynamic(t); });
+    $('mLiveStatus').addEventListener('click', (e) => { if (e.target.closest('[data-resume]')) resumeManageLive(t); });
+    startManageLive(t);
+    if (!state.managePrice && state.mLive.status !== 'live' && !liveEnabled()) setTimeout(() => inp.focus(), 50);
   }
   renderDynamic(t);
 }
@@ -702,6 +717,117 @@ function onManageAction(t, d, price) {
   }
 }
 
+
+/* ---------------------------------------------------------------- live prices */
+function liveEnabled() { return (state.settings.live || {}).enabled !== false; }
+function liveOpts() { const l = state.settings.live || {}; return { finnhubKey: (l.finnhubKey || '').trim(), allowApprox: l.allowApprox !== false }; }
+function liveValueString(price, refs) { return String(Number(price.toFixed(priceDecimals(price, refs.filter((r) => r != null))))); }
+function ageText(ts) { const s = Math.max(0, Math.round((Date.now() - ts) / 1000)); return s < 2 ? 'now' : `${s}s ago`; }
+
+function renderLiveBadge() {
+  const el = $('liveBadge'); const L = state.live; const f = state.form;
+  if (!liveEnabled() || !f.instrument) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.className = `live is-${L.status}`;
+  const refs = [num(f.entry), num(f.sl)];
+  if (L.status === 'live' && L.price != null) {
+    el.innerHTML = `<span class="dot"></span><span class="lp">${fmtPrice(L.price, refs)}</span><span>${L.approx ? '≈ ' : ''}live · ${esc(L.source || '')}</span><button type="button" class="chip" data-use="1">Use</button>`;
+  } else if (L.status === 'connecting') el.innerHTML = `<span class="dot"></span><span>connecting to live price…</span>`;
+  else if (L.status === 'offline') el.innerHTML = `<span class="dot"></span><span>offline — no live price</span>`;
+  else el.innerHTML = `<span class="dot"></span><span>no live price for this market</span>`;
+}
+
+function syncFormLive() {
+  const f = state.form; const L = state.live;
+  const want = liveEnabled() && state.tab === 'size' && f.instrument ? f.instrument.symbol : null;
+  if (L.symbol === want && (want ? !!L.sub : true)) { renderLiveBadge(); return; }
+  stopFormLive();
+  L.symbol = want; L.price = null; L.status = want ? 'connecting' : 'idle'; L.autoFilled = null;
+  if (!want) { renderLiveBadge(); return; }
+  L.sub = watchPrice(f.instrument, (ev) => {
+    if (ev.type === 'price') {
+      L.price = ev.price; L.source = ev.source; L.approx = ev.approx; L.status = 'live';
+      // market-entry signals: fill the entry once from the live price
+      if (!num(state.form.entry) && L.autoFilled !== want && document.activeElement !== $('fEntry')) {
+        const v = liveValueString(ev.price, [num(state.form.sl)]);
+        state.form.entry = v; $('fEntry').value = v; L.autoFilled = want;
+        $('fEntry').classList.remove('invalid');
+        const flags = $('parseFlags'); if (flags && !flags.querySelector('[data-live-fill]')) flags.insertAdjacentHTML('beforeend', `<div class="flag info" data-live-fill>Entry filled from the live price (${fmtPrice(ev.price, [ev.price])}). Change it if your fill was different.</div>`);
+        compute();
+      }
+    } else { L.status = ev.status; L.source = ev.source; }
+    renderLiveBadge();
+  }, liveOpts());
+  renderLiveBadge();
+}
+function stopFormLive() { const L = state.live; if (L.sub) { L.sub(); L.sub = null; } L.symbol = null; L.status = 'idle'; L.price = null; renderLiveBadge(); }
+
+let manageRenderTimer = null;
+function renderManageLiveStatus(t) {
+  const el = $('mLiveStatus'); if (!el) return;
+  const M = state.mLive; const refs = [t.entry, t.sl, ...t.tps];
+  if (!liveEnabled()) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.className = `live livestatus is-${M.status}`;
+  if (M.status === 'live' && M.price != null) {
+    el.innerHTML = `<span class="dot"></span><span class="lp">${fmtPrice(M.price, refs)}</span><span>${M.approx ? '≈ ' : ''}live · ${esc(M.source || '')}</span>${M.paused ? '<button type="button" class="chip" data-resume="1">▶ Resume live</button>' : '<span class="muted">updating</span>'}`;
+  } else if (M.status === 'connecting') el.innerHTML = `<span class="dot"></span><span>connecting to live price…</span>`;
+  else if (M.status === 'offline') el.innerHTML = `<span class="dot"></span><span>offline — type the price</span>`;
+  else el.innerHTML = `<span class="dot"></span><span>no live price for this market — type it</span>`;
+}
+function startManageLive(t) {
+  stopManageLive();
+  if (!liveEnabled()) return;
+  const inst = instrumentForSymbol(t.symbol) || (t.base ? { symbol: t.symbol, kind: t.kind, base: t.base } : null);
+  if (!inst) { state.mLive.status = 'unavailable'; renderManageLiveStatus(t); return; }
+  const M = state.mLive; M.tradeId = t.id; M.paused = false; M.price = null; M.status = 'connecting';
+  M.sub = watchPrice(inst, (ev) => {
+    if (state.manageId !== t.id) return;
+    if (ev.type === 'price') {
+      M.price = ev.price; M.source = ev.source; M.approx = ev.approx; M.status = 'live';
+      if (!M.paused) {
+        const v = liveValueString(ev.price, [t.entry, t.sl, ...t.tps]);
+        if (state.managePrice !== v) {
+          state.managePrice = v; const inp = $('mPrice'); if (inp && document.activeElement !== inp) inp.value = v;
+          if (!manageRenderTimer) manageRenderTimer = setTimeout(() => { manageRenderTimer = null; const cur = state.trades.find((x) => x.id === state.manageId); if (cur) renderDynamic(cur); }, 400);
+        }
+      }
+    } else { M.status = ev.status; M.source = ev.source; }
+    renderManageLiveStatus(t);
+  }, liveOpts());
+  renderManageLiveStatus(t);
+}
+function stopManageLive() { const M = state.mLive; if (M.sub) { M.sub(); M.sub = null; } M.tradeId = null; M.status = 'idle'; M.price = null; M.paused = false; clearTimeout(manageRenderTimer); manageRenderTimer = null; }
+function pauseManageLive() { const M = state.mLive; if (M.sub && !M.paused) { M.paused = true; const t = state.trades.find((x) => x.id === state.manageId); if (t) renderManageLiveStatus(t); } }
+function resumeManageLive(t) {
+  const M = state.mLive; M.paused = false;
+  if (M.price != null) { const v = liveValueString(M.price, [t.entry, t.sl, ...t.tps]); state.managePrice = v; const inp = $('mPrice'); if (inp) inp.value = v; renderDynamic(t); }
+  renderManageLiveStatus(t);
+}
+
+function startListLive(openTrades) {
+  stopListLive();
+  if (!liveEnabled()) return;
+  const bySymbol = new Map();
+  for (const t of openTrades) { const inst = instrumentForSymbol(t.symbol); if (inst) { if (!bySymbol.has(inst.symbol)) bySymbol.set(inst.symbol, { inst, trades: [] }); bySymbol.get(inst.symbol).trades.push(t); } }
+  for (const { inst, trades } of bySymbol.values()) {
+    state.listSubs.push(watchPrice(inst, (ev) => {
+      if (ev.type !== 'price') return;
+      for (const t of trades) {
+        const el = document.querySelector(`[data-live-line="${t.id}"]`); if (!el) continue;
+        const a = assess(t, ev.price, state.settings.plan); const refs = [t.entry, t.sl, ...t.tps];
+        el.innerHTML = `<span class="lp">${fmtPrice(ev.price, refs)}</span> ${ev.approx ? '≈ ' : ''}live · <span class="${a.openPnl >= 0 ? 'pos' : 'neg'}">${fmtSigned(a.openPnl, cur())}</span> · ${fmtR(a.r)}${a.status === 'take_profit' ? ' · <span class="gold">take profit!</span>' : a.status === 'stopped' ? ' · <span class="neg">stop hit</span>' : ''}`;
+      }
+    }, liveOpts()));
+  }
+}
+function stopListLive() { for (const u of state.listSubs) { try { u(); } catch { /* ignore */ } } state.listSubs = []; }
+function stopAllLive() { stopFormLive(); stopManageLive(); stopListLive(); stopAllPrices(); }
+function resumeLiveForView() {
+  if (state.tab === 'size') syncFormLive();
+  if (state.tab === 'manage') renderManage();
+}
+
 /* ---------------------------------------------------------------- settings */
 function bindSettingsTab() {
   const s = state.settings;
@@ -731,6 +857,9 @@ function bindSettingsTab() {
   $('sIncludeFees').addEventListener('change', () => { s.crypto.includeFees = $('sIncludeFees').checked; saveSettings(s); afterSettingsChange(); });
   $('sBeAt').addEventListener('change', () => { s.plan.beAt = $('sBeAt').value; saveSettings(s); afterSettingsChange(); });
   $('sTrail').addEventListener('change', () => { s.plan.trail = $('sTrail').value; saveSettings(s); afterSettingsChange(); });
+  $('sLiveEnabled').addEventListener('change', () => { s.live.enabled = $('sLiveEnabled').checked; saveSettings(s); stopAllLive(); afterSettingsChange(); });
+  $('sFinnhubKey').addEventListener('change', () => { s.live.finnhubKey = $('sFinnhubKey').value.trim(); saveSettings(s); stopAllLive(); afterSettingsChange(); });
+  $('sAllowApprox').addEventListener('change', () => { s.live.allowApprox = $('sAllowApprox').checked; saveSettings(s); stopAllLive(); afterSettingsChange(); });
   $('btnOcrPack').addEventListener('click', async () => {
     const b = $('btnOcrPack'); b.disabled = true;
     try { await downloadOcrPack((p) => { $('ocrPackStatus').textContent = `Downloading… ${Math.round(p * 100)}%`; }); toast('Screenshot reading works offline now'); } catch (e) { toast('Download failed — check your connection'); }
@@ -753,6 +882,7 @@ function afterSettingsChange() {
   $('curSym').textContent = cur();
   renderRiskChips(); syncRiskPct(); compute();
   if (state.tab === 'manage') renderManage();
+  if (state.tab === 'size') syncFormLive();
 }
 
 function renderSettingsForm() {
@@ -762,6 +892,7 @@ function renderSettingsForm() {
   $('sLeverage').value = s.crypto.leverage || 1; $('sFee').value = s.crypto.feePct ?? ''; $('sIncludeFees').checked = !!s.crypto.includeFees;
   $('sP1').value = s.plan.partials[0] ?? ''; $('sP2').value = s.plan.partials[1] ?? ''; $('sP3').value = s.plan.partials[2] ?? '';
   $('sBeAt').value = s.plan.beAt || 'tp1'; $('sBeBuffer').value = s.plan.beBufferPct || 0; $('sTrail').value = s.plan.trail || 'prevtp'; $('sLockPct').value = s.plan.lockPct || 50;
+  $('sLiveEnabled').checked = (s.live || {}).enabled !== false; $('sFinnhubKey').value = (s.live || {}).finnhubKey || ''; $('sAllowApprox').checked = (s.live || {}).allowApprox !== false;
   renderInstallHelp();
 }
 

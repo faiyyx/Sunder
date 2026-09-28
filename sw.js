@@ -6,7 +6,7 @@ const SHARE_CACHE = 'signalsize-share';
 
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './manifest.webmanifest',
-  './src/instruments.js', './src/parser.js', './src/calc.js', './src/manage.js', './src/format.js', './src/store.js', './src/ocr.js',
+  './src/instruments.js', './src/parser.js', './src/calc.js', './src/manage.js', './src/format.js', './src/store.js', './src/ocr.js', './src/prices.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './icons/icon.svg',
 ];
 

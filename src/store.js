@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   plan: { ...DEFAULT_PLAN },
   contractOverrides: {}, // symbol -> contract size
   ocrAuto: true,
+  live: { enabled: true, finnhubKey: '', allowApprox: true },
 };
 
 function safeParse(s, fallback) {
