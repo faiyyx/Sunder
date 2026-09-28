@@ -8,18 +8,32 @@
 - **Trade management.** Save the trade, then enter the current price whenever it moves: Sunder tells you how much to sell, when to move the stop to breakeven, and where to trail it after each target. It tracks partials, so the next recommendation accounts for what you already sold.
 - **Offline, fast, private.** No accounts, no servers — everything stays on the device. Add it to your home screen and it opens like a native app.
 
-## Install on your phone
+## Deploy (private repo is fine)
 
-The app must be served over HTTPS. GitHub Pages does this for free:
+The app is static, so any host works. Vercel and Netlify both deploy straight from a **private** GitHub repo on their free plans and redeploy on every push to `main`. Build settings are read from `vercel.json` / `netlify.toml` (`npm run build` → `dist/`).
 
-1. GitHub Pages needs a **public** repository (or a GitHub Pro plan for private ones). If the repo is private, make it public in Settings → General → Danger Zone, or upgrade.
-2. Every push to `main` runs the `Deploy to GitHub Pages` workflow, which tests the app and publishes the built site to the `gh-pages` branch. GitHub usually enables Pages automatically for that branch. If it doesn't, open Settings → Pages and set **Source** to **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`.
-3. The app is then live at `https://<your-user>.github.io/Sunder/`.
-4. Open that URL on your phone:
-   - **iPhone:** Safari → Share → **Add to Home Screen**.
-   - **Android:** Chrome → ⋮ menu → **Add to Home screen** / **Install app**. Screenshots can then be sent to Sunder straight from the share sheet.
+**Vercel**
 
-Everything (including the ~7 MB screenshot reader) is cached on first use, so it keeps working with no connection.
+1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub.
+2. Under *Import Git Repository* pick `Sunder` (if it is not listed, use *Adjust GitHub App Permissions* and grant access to the repo).
+3. Leave the detected settings as they are and press **Deploy**. The site is live at `https://<project>.vercel.app` in about a minute.
+
+**Netlify**
+
+1. Go to [app.netlify.com](https://app.netlify.com) and sign in with GitHub.
+2. *Add new site → Import an existing project → GitHub*, pick `Sunder`.
+3. The build command and publish folder are pre-filled from `netlify.toml`; press **Deploy**. Rename the site under *Site configuration → Change site name* to get a nicer `https://<name>.netlify.app` URL.
+
+**GitHub Pages** also works for a *public* repo: run `npm run build` and publish `dist/` (for example from a `gh-pages` branch, Settings → Pages → Deploy from a branch).
+
+## Add it to your phone
+
+Open the deployed URL on the phone, then:
+
+- **iPhone (Safari):** Share button → **Add to Home Screen** → Add.
+- **Android (Chrome):** ⋮ menu → **Add to Home screen** / **Install app**.
+
+Open it once while online; that first launch caches everything (including the ~7 MB screenshot reader), and from then on it works with no connection. On Android, screenshots can be sent to Sunder directly from the share sheet.
 
 ## Run locally
 
