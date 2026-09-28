@@ -1,11 +1,11 @@
-# Sunder
+# SignalSize
 
 **Paste a trading signal → get the exact size → manage the trade.** An installable, offline web app.
 
-- **Text, screenshot, or both.** Paste the signal text or drop in a screenshot (the reader runs on your phone, no internet needed). Sunder finds the symbol, direction, entry, stop loss, targets and leverage.
+- **Text, screenshot, or both.** Paste the signal text or drop in a screenshot (the reader runs on your phone, no internet needed). SignalSize finds the symbol, direction, entry, stop loss, targets and leverage.
 - **Gold / forex / indices → lot size.** Tell it how much you're willing to lose if the stop hits; it returns lots, rounded *down* to your broker's lot step, plus the real risk at that size.
 - **Crypto → USDT amount.** Returns how much USDT to buy (notional), the coin quantity, the margin with leverage, and warns when liquidation would come before your stop.
-- **Trade management.** Save the trade, then enter the current price whenever it moves: Sunder tells you how much to sell, when to move the stop to breakeven, and where to trail it after each target. It tracks partials, so the next recommendation accounts for what you already sold.
+- **Trade management.** Save the trade, then enter the current price whenever it moves: SignalSize tells you how much to sell, when to move the stop to breakeven, and where to trail it after each target. It tracks partials, so the next recommendation accounts for what you already sold.
 - **Offline, fast, private.** No accounts, no servers — everything stays on the device. Add it to your home screen and it opens like a native app.
 
 ## Deploy (private repo is fine)
@@ -15,7 +15,7 @@ The app is static, so any host works. Vercel and Netlify both deploy straight fr
 **Vercel**
 
 1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub.
-2. Under *Import Git Repository* pick `Sunder` (if it is not listed, use *Adjust GitHub App Permissions* and grant access to the repo).
+2. Under *Import Git Repository* pick the `Sunder` repository (the app inside is SignalSize) (if it is not listed, use *Adjust GitHub App Permissions* and grant access to the repo).
 3. Leave the detected settings as they are and press **Deploy**. The site is live at `https://<project>.vercel.app` in about a minute.
 
 **Netlify**
@@ -33,7 +33,7 @@ Open the deployed URL on the phone, then:
 - **iPhone (Safari):** Share button → **Add to Home Screen** → Add.
 - **Android (Chrome):** ⋮ menu → **Add to Home screen** / **Install app**.
 
-Open it once while online; that first launch caches everything (including the ~7 MB screenshot reader), and from then on it works with no connection. On Android, screenshots can be sent to Sunder directly from the share sheet.
+Open it once while online; that first launch caches everything (including the ~7 MB screenshot reader), and from then on it works with no connection. On Android, screenshots can be sent to SignalSize directly from the share sheet.
 
 ## Run locally
 

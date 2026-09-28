@@ -1,8 +1,8 @@
 // Persistence (localStorage) for settings and trades.
 import { DEFAULT_PLAN } from './manage.js';
 
-const K_SETTINGS = 'sunder.settings.v1';
-const K_TRADES = 'sunder.trades.v1';
+const K_SETTINGS = 'signalsize.settings.v1';
+const K_TRADES = 'signalsize.trades.v1';
 
 export const DEFAULT_SETTINGS = {
   currency: '$',
@@ -57,12 +57,12 @@ export function newId() {
 }
 
 export function exportAll() {
-  return JSON.stringify({ app: 'sunder', version: 1, exportedAt: new Date().toISOString(), settings: loadSettings(), trades: loadTrades() }, null, 2);
+  return JSON.stringify({ app: 'signalsize', version: 1, exportedAt: new Date().toISOString(), settings: loadSettings(), trades: loadTrades() }, null, 2);
 }
 
 export function importAll(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
-  if (!data || data.app !== 'sunder') throw new Error('Not a Sunder backup file');
+  if (!data || (data.app !== 'signalsize' && data.app !== 'sunder')) throw new Error('Not a SignalSize backup file');
   if (data.settings) saveSettings(deepMerge(structuredClone(DEFAULT_SETTINGS), data.settings));
   if (Array.isArray(data.trades)) saveTrades(data.trades);
   return { trades: (data.trades || []).length };
