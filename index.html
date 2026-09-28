@@ -81,6 +81,7 @@
           <div class="field">
             <label for="fEntry">Entry price</label>
             <input id="fEntry" type="text" inputmode="decimal" placeholder="fill price" autocomplete="off">
+            <div id="liveBadge" class="live hidden"></div>
             <div id="entryChips" class="chips small"></div>
           </div>
           <div class="field">
@@ -202,6 +203,14 @@
           <div class="field"><label for="sLockPct">Lock % of open profit</label><input id="sLockPct" type="text" inputmode="numeric" placeholder="50"></div>
         </div>
         <div class="hint">Percentages are of the <b>original</b> position. The last target always closes whatever is left. If a signal has no targets, 1R / 2R / 3R are used.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Live prices</div>
+        <label class="check"><input type="checkbox" id="sLiveEnabled"> Fetch live prices when online (about 1 s delay)</label>
+        <div class="field"><label for="sFinnhubKey">Finnhub API key (free) — exact gold &amp; forex quotes</label><input id="sFinnhubKey" type="text" placeholder="paste key from finnhub.io" autocomplete="off" spellcheck="false"></div>
+        <label class="check"><input type="checkbox" id="sAllowApprox"> Without a key, use tokenised gold (PAXG / XAUT) as an approximate gold price</label>
+        <div class="hint">Crypto streams straight from the exchanges (Binance, Bybit, OKX, Coinbase). Gold and forex use Swissquote's public feed, or OANDA via a free <a href="https://finnhub.io/register" target="_blank" rel="noopener">Finnhub</a> key for a tick-by-tick feed. Prices marked ≈ are close to, but not exactly, your broker's quote. Indices have no free live source: type the price.</div>
       </div>
 
       <div class="card">

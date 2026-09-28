@@ -37,10 +37,30 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
 
+// --- mocked live price feeds (the sandbox has no internet; these stand in for the exchanges) ---
+const feed = { gold: 2661.3, btc: 61000 };
+await page.routeWebSocket(/stream\.binance\.com|fstream\.binance\.com/, (ws) => {
+  const m = ws.url().match(/\/ws\/([a-z0-9]+)@miniTicker/);
+  const sym = m ? m[1].toUpperCase() : 'BTCUSDT';
+  const price = () => (sym === 'BTCUSDT' ? feed.btc : sym === 'PAXGUSDT' ? feed.gold + 3 : 100);
+  const send = () => { try { ws.send(JSON.stringify({ e: '24hrMiniTicker', s: sym, c: String(price()) })); } catch (e) { /* closed */ } };
+  send();
+  const iv = setInterval(send, 400);
+  ws.onClose(() => clearInterval(iv));
+});
+await page.route(/forex-data-feed\.swissquote\.com/, (route) => {
+  const gold = route.request().url().includes('XAU');
+  const mid = gold ? feed.gold : 1.085;
+  route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json',
+    body: JSON.stringify([{ spreadProfilePrices: [{ spreadProfile: 'standard', bid: mid - 0.15, ask: mid + 0.15 }] }]) });
+});
+await page.route(/api\.gold-api\.com|api-pub\.bitfinex\.com|www\.okx\.com|api\.bybit\.com|api\.binance\.com|fapi\.binance\.com|api\.exchange\.coinbase\.com|api\.mexc\.com/, (route) => route.abort());
+
 console.log('1. load');
 await page.goto(BASE, { waitUntil: 'load' });
 await page.waitForSelector('#sigText');
 check(await page.title() === 'SignalSize', 'title');
+let dyn = '';
 
 console.log('2. gold signal → lots');
 await page.fill('#sigText', '🔥 XAUUSD BUY NOW @ 2650-2655\nSL: 2640\nTP1: 2660\nTP2: 2670\nTP3: 2680');
@@ -60,9 +80,20 @@ console.log('3. save → manage');
 await page.click('#btnSave');
 await page.waitForSelector('#mPrice');
 check(await page.$eval('#tab-manage', (e) => e.classList.contains('active')), 'manage tab active');
+await page.waitForFunction(() => document.getElementById('mLiveStatus') && document.getElementById('mLiveStatus').classList.contains('is-live'), null, { timeout: 20000 });
+await sleep(600);
+check((await page.inputValue('#mPrice')) === '2661.3', `live gold price auto-filled (${await page.inputValue('#mPrice')})`);
+check((await page.textContent('#mLiveStatus')).includes('Swissquote'), 'live source shown (Swissquote)');
+dyn = await page.textContent('#mDynamic');
+check(/Sell\s*0\.03 lots/.test(dyn), 'live price drives the recommendation (TP1 partial)');
+feed.gold = 2657.2;
+await page.waitForFunction(() => document.getElementById('mPrice').value === '2657.2', null, { timeout: 10000 });
+check(true, 'price keeps updating from the feed');
 await page.fill('#mPrice', '2655');
 await sleep(150);
-let dyn = await page.textContent('#mDynamic');
+check((await page.textContent('#mLiveStatus')).includes('Resume live'), 'typing a price pauses the live feed');
+await sleep(150);
+dyn = await page.textContent('#mDynamic');
 check(/hold/i.test(dyn) && dyn.includes('TP1'), 'at 2655: hold, next TP1');
 await page.fill('#mPrice', '2661');
 await sleep(150);
@@ -88,9 +119,15 @@ await sleep(150);
 dyn = await page.textContent('#mDynamic');
 check(/stop hit/i.test(dyn), 'at 2649 (below moved stop): stop hit');
 await page.screenshot({ path: path.join(OUT, '3-manage-tp2.png'), fullPage: true });
+await page.click('#mLiveStatus [data-resume]');
+await sleep(200);
+check((await page.inputValue('#mPrice')) === '2657.2', 'resume live restores the feed price');
 await page.click('#btnBack');
 await sleep(100);
 check((await page.textContent('#manageView')).includes('Open (1)'), 'trade list shows open trade');
+await page.waitForFunction(() => { const el = document.querySelector('[data-live-line]'); return el && /live/.test(el.textContent); }, null, { timeout: 10000 });
+const liveLine = await page.textContent('[data-live-line]');
+check(liveLine.includes('2657.20') && /R/.test(liveLine), `trade list shows live P&L line (${liveLine.trim()})`);
 
 console.log('4. crypto signal → USDT');
 await page.click('.tabbar button[data-tab="size"]');
@@ -105,6 +142,15 @@ check(bigC === '3,000', `notional = ${bigC} (expected 3,000)`);
 const resTxt = await page.textContent('#resultCard');
 check(resTxt.includes('0.05 BTC') && resTxt.includes('300.00 USDT'), 'qty 0.05 BTC, margin 300 USDT');
 await page.screenshot({ path: path.join(OUT, '4-size-crypto.png'), fullPage: true });
+await page.waitForFunction(() => document.getElementById('liveBadge').classList.contains('is-live'), null, { timeout: 15000 });
+const badge = await page.textContent('#liveBadge');
+check(badge.includes('61,000') && badge.includes('Binance'), `live badge on size tab (${badge.trim()})`);
+await page.click('#liveBadge [data-use]');
+await sleep(150);
+check((await page.inputValue('#fEntry')) === '61000', '"Use" copies the live price into entry');
+await page.fill('#sigText', 'BTC long now\nsl 59000\ntp 62000 63000');
+await page.waitForFunction(() => document.getElementById('fEntry').value === '61000' && !!document.querySelector('[data-live-fill]'), null, { timeout: 15000 });
+check(true, 'market-entry signal auto-filled from the live price');
 
 console.log('5. two signals in one text → picker');
 await page.fill('#sigText', 'XAUUSD SELL 2655/2660\nSL 2670\nTP 2645 2635 2625\n\nSOL long\nentry 145.5\nsl 141\ntp 152 / 158 / 165\nlev 10x');
@@ -162,6 +208,12 @@ await page.waitForSelector('#sigText', { timeout: 10000 });
 check(await page.$eval('#netPill', (e) => e.textContent) === 'offline', 'offline reload works (pill shows offline)');
 const tradesPersist = await page.evaluate(() => JSON.parse(localStorage.getItem('signalsize.trades.v1') || '[]').length);
 check(tradesPersist === 1, 'trade persisted across reload');
+await page.click('.tabbar button[data-tab="manage"]');
+await page.click('.tradecard');
+await page.waitForSelector('#mLiveStatus');
+await sleep(200);
+check((await page.textContent('#mLiveStatus')).includes('offline'), 'offline: live status says offline, manual entry');
+await page.click('.tabbar button[data-tab="size"]');
 await page.setInputFiles('#fileInput', fixtures['chat-small']);
 await page.waitForFunction(() => /Read in|Could not|No text/.test(document.getElementById('ocrStatus').textContent), null, { timeout: 120000 });
 const stOff = await page.textContent('#ocrStatus');

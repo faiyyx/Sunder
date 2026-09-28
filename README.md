@@ -6,6 +6,7 @@
 - **Gold / forex / indices → lot size.** Tell it how much you're willing to lose if the stop hits; it returns lots, rounded *down* to your broker's lot step, plus the real risk at that size.
 - **Crypto → USDT amount.** Returns how much USDT to buy (notional), the coin quantity, the margin with leverage, and warns when liquidation would come before your stop.
 - **Trade management.** Save the trade, then enter the current price whenever it moves: SignalSize tells you how much to sell, when to move the stop to breakeven, and where to trail it after each target. It tracks partials, so the next recommendation accounts for what you already sold.
+- **Live prices when online.** Crypto streams from the exchanges (Binance, Bybit, OKX, Coinbase), gold and forex from Swissquote's public feed or, with a free Finnhub key, tick-by-tick OANDA quotes. The trade view updates itself about once a second; type a price to pause it. Offline you just type the price.
 - **Offline, fast, private.** No accounts, no servers — everything stays on the device. Add it to your home screen and it opens like a native app.
 
 ## Deploy (private repo is fine)
