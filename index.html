@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sunder</title>
+  <meta name="description" content="Paste a trading signal, set your risk, get the exact lot size (gold/FX) or USDT amount (crypto), then manage the trade with partials and stop moves. Works offline.">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sunder">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icons/icon-192.png" alt="" width="28" height="28"><span>Sunder</span></div>
+    <div class="topbar-right">
+      <span id="netPill" class="pill" title="Connection">…</span>
+      <button id="btnInstall" class="btn tiny hidden">Install</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ======================= SIZE ======================= -->
+    <section id="tab-size" class="tab active" aria-label="Size a signal">
+      <div class="card">
+        <div class="card-title">Signal</div>
+        <textarea id="sigText" rows="4" placeholder="Paste the signal here…&#10;e.g. XAUUSD BUY 2650-2655  SL 2640  TP 2660 2670 2680" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+        <div class="row wrap">
+          <button id="btnImage" class="btn">📷 Screenshot</button>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+          <button id="btnPaste" class="btn">📋 Paste</button>
+          <button id="btnClear" class="btn ghost">Clear</button>
+        </div>
+        <div id="imgBox" class="imgbox hidden">
+          <img id="imgPreview" alt="Signal screenshot">
+          <div class="imgmeta">
+            <div id="ocrStatus" class="muted small">Reading…</div>
+            <progress id="ocrProgress" max="1" value="0"></progress>
+            <button id="btnRemoveImg" class="btn tiny ghost">Remove image</button>
+          </div>
+        </div>
+        <details id="ocrDetails" class="hidden">
+          <summary class="muted small">Text read from the image</summary>
+          <pre id="ocrText" class="ocrtext"></pre>
+        </details>
+        <div id="signalPicker" class="picker hidden"></div>
+        <div id="parseFlags" class="flags"></div>
+      </div>
+
+      <div class="card" id="formCard">
+        <div class="card-title">Trade</div>
+        <div class="grid2">
+          <div class="field">
+            <label for="fSymbol">Symbol</label>
+            <input id="fSymbol" type="text" placeholder="XAUUSD / BTCUSDT" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <div id="symbolHint" class="hint"></div>
+          </div>
+          <div class="field">
+            <label>Sized in</label>
+            <div class="seg" id="fKind">
+              <button type="button" data-v="lots">Lots</button>
+              <button type="button" data-v="usdt">USDT</button>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Direction</label>
+          <div class="seg" id="fDir">
+            <button type="button" data-v="long" class="seg-buy">BUY / LONG</button>
+            <button type="button" data-v="short" class="seg-sell">SELL / SHORT</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="fEntry">Entry price</label>
+            <input id="fEntry" type="text" inputmode="decimal" placeholder="fill price" autocomplete="off">
+            <div id="entryChips" class="chips small"></div>
+          </div>
+          <div class="field">
+            <label for="fSl">Stop loss</label>
+            <input id="fSl" type="text" inputmode="decimal" placeholder="SL price" autocomplete="off">
+            <div id="slHint" class="hint"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Targets</label>
+          <div id="tpList" class="tplist"></div>
+          <button type="button" id="btnAddTp" class="btn tiny ghost">+ add target</button>
+        </div>
+        <div id="lotsFields" class="grid2">
+          <div class="field">
+            <label for="fContract">Contract size per lot</label>
+            <input id="fContract" type="text" inputmode="decimal" autocomplete="off">
+            <div id="contractHint" class="hint"></div>
+          </div>
+          <div class="field" id="quoteField">
+            <label for="fQuoteRate">Quote → USD rate</label>
+            <input id="fQuoteRate" type="text" inputmode="decimal" autocomplete="off">
+            <div id="quoteHint" class="hint"></div>
+          </div>
+        </div>
+        <div id="usdtFields" class="grid2">
+          <div class="field">
+            <label for="fLev">Leverage</label>
+            <input id="fLev" type="text" inputmode="numeric" placeholder="1 = spot" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="fFee">Taker fee %</label>
+            <input id="fFee" type="text" inputmode="decimal" placeholder="0.05" autocomplete="off">
+            <div class="hint" id="feeHint"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Risk if the stop hits</div>
+        <div class="riskrow">
+          <span class="cur" id="curSym">$</span>
+          <input id="fRisk" type="text" inputmode="decimal" class="big-input" placeholder="50" autocomplete="off">
+          <span class="eq" id="riskEq">=</span>
+          <input id="fRiskPct" type="text" inputmode="decimal" class="pct-input" placeholder="%" autocomplete="off">
+          <span class="muted small" id="riskPctLabel">% of balance</span>
+        </div>
+        <div id="riskChips" class="chips"></div>
+      </div>
+
+      <div class="card result" id="resultCard"></div>
+
+      <div class="row">
+        <button id="btnSave" class="btn primary grow">Save &amp; manage</button>
+        <button id="btnCopy" class="btn">Copy</button>
+      </div>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ======================= MANAGE ======================= -->
+    <section id="tab-manage" class="tab" aria-label="Manage trades">
+      <div id="manageView"></div>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ======================= SETTINGS ======================= -->
+    <section id="tab-settings" class="tab" aria-label="Settings">
+      <div class="card">
+        <div class="card-title">Account</div>
+        <div class="grid2">
+          <div class="field"><label for="sBalance">Balance</label><input id="sBalance" type="text" inputmode="decimal" placeholder="e.g. 5000"></div>
+          <div class="field"><label for="sCurrency">Currency symbol</label><input id="sCurrency" type="text" placeholder="$" maxlength="4"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="sRiskPct">Default risk % per trade</label><input id="sRiskPct" type="text" inputmode="decimal" placeholder="1"></div>
+          <div class="field"><label for="sPresets">Quick risk amounts</label><input id="sPresets" type="text" placeholder="10, 25, 50, 100"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Gold / Forex / CFDs (lots)</div>
+        <div class="grid2">
+          <div class="field"><label for="sContract">Gold contract size (oz per lot)</label><input id="sContract" type="text" inputmode="decimal" placeholder="100"></div>
+          <div class="field"><label for="sLotStep">Lot step</label><input id="sLotStep" type="text" inputmode="decimal" placeholder="0.01"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="sMinLot">Minimum lot</label><input id="sMinLot" type="text" inputmode="decimal" placeholder="0.01"></div>
+          <div class="field"><label for="sMaxLot">Maximum lot (0 = none)</label><input id="sMaxLot" type="text" inputmode="decimal" placeholder="0"></div>
+        </div>
+        <div class="field"><label for="sCommission">Commission per lot, round trip (in account currency)</label><input id="sCommission" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="hint">Most brokers: gold 1 lot = 100 oz, so a $1 move = $100 per lot. Sizes are always rounded <b>down</b> to the lot step so you never risk more than planned.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Crypto (USDT)</div>
+        <div class="grid2">
+          <div class="field"><label for="sLeverage">Default leverage</label><input id="sLeverage" type="text" inputmode="numeric" placeholder="1"></div>
+          <div class="field"><label for="sFee">Taker fee % (per side)</label><input id="sFee" type="text" inputmode="decimal" placeholder="0.05"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="sIncludeFees"> Include round-trip fees in the risk</label>
+        <div class="hint">The USDT amount is the position <b>notional</b> (what you buy). With leverage, the margin you post is notional ÷ leverage — the risk at the stop is the same either way.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Trade management plan</div>
+        <div class="grid3">
+          <div class="field"><label for="sP1">Sell at TP1 %</label><input id="sP1" type="text" inputmode="numeric" placeholder="50"></div>
+          <div class="field"><label for="sP2">Sell at TP2 %</label><input id="sP2" type="text" inputmode="numeric" placeholder="30"></div>
+          <div class="field"><label for="sP3">Sell at TP3 %</label><input id="sP3" type="text" inputmode="numeric" placeholder="20"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="sBeAt">Move stop to breakeven at</label>
+            <select id="sBeAt"><option value="tp1">TP1 (first target)</option><option value="1r">1R (profit = risk)</option></select></div>
+          <div class="field"><label for="sBeBuffer">Breakeven buffer % (covers fees/spread)</label><input id="sBeBuffer" type="text" inputmode="decimal" placeholder="0"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="sTrail">After later targets, trail stop to</label>
+            <select id="sTrail"><option value="prevtp">previous target</option><option value="lock">lock % of profit</option></select></div>
+          <div class="field"><label for="sLockPct">Lock % of open profit</label><input id="sLockPct" type="text" inputmode="numeric" placeholder="50"></div>
+        </div>
+        <div class="hint">Percentages are of the <b>original</b> position. The last target always closes whatever is left. If a signal has no targets, 1R / 2R / 3R are used.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Offline &amp; data</div>
+        <div class="row between">
+          <div><div>Screenshot reading (OCR)</div><div id="ocrPackStatus" class="muted small">Checking…</div></div>
+          <button id="btnOcrPack" class="btn tiny">Download</button>
+        </div>
+        <div class="row wrap">
+          <button id="btnExport" class="btn tiny">Export backup</button>
+          <button id="btnImport" class="btn tiny">Import backup</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <button id="btnWipe" class="btn tiny danger">Erase all data</button>
+        </div>
+        <div id="installHelp" class="hint"></div>
+        <div class="hint muted small">Sunder <span id="appVersion"></span> · everything stays on this device. Not financial advice — always double-check sizes with your broker.</div>
+      </div>
+      <div class="spacer"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="size" class="active"><span class="ico">⚖️</span><span>Size</span></button>
+    <button data-tab="manage"><span class="ico">📈</span><span>Manage <span id="openCount" class="badge hidden"></span></span></button>
+    <button data-tab="settings"><span class="ico">⚙️</span><span>Settings</span></button>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
