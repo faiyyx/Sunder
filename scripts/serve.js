@@ -24,4 +24,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'Content-Length': st.size });
     fs.createReadStream(file).pipe(res);
   });
-}).listen(port, () => console.log(`Sunder dev server: http://localhost:${port}`));
+}).listen(port, () => console.log(`SignalSize dev server: http://localhost:${port}`));

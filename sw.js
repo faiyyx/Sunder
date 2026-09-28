@@ -1,8 +1,8 @@
-/* Sunder service worker: offline-first app shell + best-effort OCR pack + share target. */
+/* SignalSize service worker: offline-first app shell + best-effort OCR pack + share target. */
 const BUILD = '__BUILD__'; // replaced at deploy time with the commit hash
-const SHELL_CACHE = `sunder-shell-${BUILD}`;
-const OCR_CACHE = 'sunder-ocr-v7.0.0'; // bump when vendor/ changes
-const SHARE_CACHE = 'sunder-share';
+const SHELL_CACHE = `signalsize-shell-${BUILD}`;
+const OCR_CACHE = 'signalsize-ocr-v7.0.0'; // bump when vendor/ changes
+const SHARE_CACHE = 'signalsize-share';
 
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './manifest.webmanifest',
@@ -40,7 +40,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => (k.startsWith('sunder-shell-') && k !== SHELL_CACHE) || (k.startsWith('sunder-ocr-') && k !== OCR_CACHE)).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => (k.startsWith('signalsize-shell-') && k !== SHELL_CACHE) || (k.startsWith('signalsize-ocr-') && k !== OCR_CACHE)).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });

@@ -40,7 +40,7 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.
 console.log('1. load');
 await page.goto(BASE, { waitUntil: 'load' });
 await page.waitForSelector('#sigText');
-check(await page.title() === 'Sunder', 'title');
+check(await page.title() === 'SignalSize', 'title');
 
 console.log('2. gold signal → lots');
 await page.fill('#sigText', '🔥 XAUUSD BUY NOW @ 2650-2655\nSL: 2640\nTP1: 2660\nTP2: 2670\nTP3: 2680');
@@ -153,14 +153,14 @@ const swState = await page.evaluate(async () => ({ controlled: !!navigator.servi
 console.log('   sw:', JSON.stringify(swState));
 check(swState.controlled, 'page controlled by service worker');
 await sleep(1500);
-const ocrCached = await page.evaluate(async () => { const c = await caches.open('sunder-ocr-v7.0.0'); const k = await c.keys(); return k.map((r) => r.url.split('/').pop()); });
+const ocrCached = await page.evaluate(async () => { const c = await caches.open('signalsize-ocr-v7.0.0'); const k = await c.keys(); return k.map((r) => r.url.split('/').pop()); });
 console.log('   ocr cache:', ocrCached.join(', '));
 check(ocrCached.includes('eng.traineddata.gz') && ocrCached.some((f) => f.includes('tesseract-core')), 'OCR pack precached by SW');
 await context.setOffline(true);
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#sigText', { timeout: 10000 });
 check(await page.$eval('#netPill', (e) => e.textContent) === 'offline', 'offline reload works (pill shows offline)');
-const tradesPersist = await page.evaluate(() => JSON.parse(localStorage.getItem('sunder.trades.v1') || '[]').length);
+const tradesPersist = await page.evaluate(() => JSON.parse(localStorage.getItem('signalsize.trades.v1') || '[]').length);
 check(tradesPersist === 1, 'trade persisted across reload');
 await page.setInputFiles('#fileInput', fixtures['chat-small']);
 await page.waitForFunction(() => /Read in|Could not|No text/.test(document.getElementById('ocrStatus').textContent), null, { timeout: 120000 });
@@ -180,7 +180,7 @@ const shareResult = await page.evaluate(async () => {
   return { url: r.url, status: r.status, redirected: r.redirected };
 });
 console.log('   share:', JSON.stringify(shareResult));
-const shareCached = await page.evaluate(async () => { const c = await caches.open('sunder-share'); return !!(await c.match(new URL('./shared-text', location.href).href)); });
+const shareCached = await page.evaluate(async () => { const c = await caches.open('signalsize-share'); return !!(await c.match(new URL('./shared-text', location.href).href)); });
 check(shareResult.status === 200 && shareCached, 'share-target POST handled by SW (text stashed)');
 await page.goto(BASE + '?shared=1', { waitUntil: 'load' });
 await sleep(500);

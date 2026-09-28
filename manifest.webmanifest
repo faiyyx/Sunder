@@ -1,6 +1,6 @@
 {
-  "name": "Sunder — Risk & Position Sizer",
-  "short_name": "Sunder",
+  "name": "SignalSize — Risk & Position Sizer",
+  "short_name": "SignalSize",
   "description": "Paste a trading signal (text or screenshot), set your risk, get the exact lot size or USDT amount, then manage the trade: partials, breakeven and trailing stops. Works offline.",
   "id": "./",
   "start_url": "./?source=pwa",

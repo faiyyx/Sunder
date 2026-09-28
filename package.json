@@ -1,5 +1,5 @@
 {
-  "name": "sunder",
+  "name": "signalsize",
   "version": "1.0.0",
   "description": "Sunder \u2014 offline trading risk & position-size calculator PWA (gold lots, crypto USDT, trade management).",
   "type": "module",

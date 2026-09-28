@@ -1,4 +1,4 @@
-// Sunder — signal → position size → trade management. No framework, no network needed.
+// SignalSize — signal → position size → trade management. No framework, no network needed.
 import { parseSignals, mergeParsed, signalScore, parseNumber } from './src/parser.js';
 import { instrumentForSymbol } from './src/instruments.js';
 import { sizeTrade } from './src/calc.js';
@@ -549,7 +549,7 @@ function renderTradeList(view) {
   const closed = state.trades.filter((t) => t.status !== 'open');
   let html = '';
   if (!open.length && !closed.length) {
-    html = `<div class="card"><div class="empty-state">No trades yet.<br><span class="small">Size a signal and tap <b>Save &amp; manage</b>. Then, whenever price moves, enter it here and Sunder tells you what to sell and where to move the stop.</span></div></div>`;
+    html = `<div class="card"><div class="empty-state">No trades yet.<br><span class="small">Size a signal and tap <b>Save &amp; manage</b>. Then, whenever price moves, enter it here and SignalSize tells you what to sell and where to move the stop.</span></div></div>`;
   }
   const item = (t) => {
     const refs = [t.entry, t.sl, ...t.tps]; const rem = remainingSize(t); const c = cur();
@@ -612,7 +612,7 @@ function renderDynamic(t) {
     ${steps.map((s) => { const st = a ? a.steps.find((x) => x.index === s.index) : null; const cls = done.has(s.index) ? 'done' : st && st.reached ? 'reached' : (a && a.next && a.next.label === s.label ? 'next' : ''); return `<tr class="${cls}"><td>${s.label}${s.synthetic ? '<span class="muted small"> auto</span>' : ''}<span class="sub">${s.r.toFixed(1)}R</span></td><td class="r">${fmtPrice(s.price, refs)}</td><td class="r">${s.stopOnly ? '<span class="muted">stop only</span>' : `${s.pct}%<span class="sub">${sizeLabel(t, s.size).split(' (')[0]}</span>`}</td><td class="r">${fmtPrice(s.slTo, refs)}<span class="sub">${esc(s.slLabel)}</span></td></tr>`; }).join('')}
     </table><div class="hint">Percentages are of the original size; the last level closes the rest. Change the rules in Settings.</div></div>`;
   if (!price) {
-    box.innerHTML = `<div class="card action hold"><div class="atitle">Waiting for a price</div><div class="areason">Type the current price above and Sunder tells you whether to take profit, move the stop, or hold.</div></div>` + planTable(null);
+    box.innerHTML = `<div class="card action hold"><div class="atitle">Waiting for a price</div><div class="areason">Type the current price above and SignalSize tells you whether to take profit, move the stop, or hold.</div></div>` + planTable(null);
     return;
   }
   const a = assess(t, price, plan);
@@ -738,7 +738,7 @@ function bindSettingsTab() {
   });
   $('btnExport').addEventListener('click', () => {
     const blob = new Blob([exportAll()], { type: 'application/json' }); const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = `sunder-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    a.href = URL.createObjectURL(blob); a.download = `signalsize-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
   $('btnImport').addEventListener('click', () => $('importFile').click());
   $('importFile').addEventListener('change', async (e) => {
@@ -779,15 +779,15 @@ function isStandalone() { return window.matchMedia('(display-mode: standalone)')
 function setupInstall() {
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.deferredInstall = e; $('btnInstall').classList.remove('hidden'); renderInstallHelp(); });
   $('btnInstall').addEventListener('click', async () => { const p = state.deferredInstall; if (!p) return; p.prompt(); await p.userChoice; state.deferredInstall = null; $('btnInstall').classList.add('hidden'); });
-  window.addEventListener('appinstalled', () => { toast('Installed — open Sunder from your home screen'); $('btnInstall').classList.add('hidden'); renderInstallHelp(); });
+  window.addEventListener('appinstalled', () => { toast('Installed — open SignalSize from your home screen'); $('btnInstall').classList.add('hidden'); renderInstallHelp(); });
 }
 
 function renderInstallHelp() {
   const el = $('installHelp'); if (!el) return;
   if (isStandalone()) { el.innerHTML = 'Installed as an app ✓'; return; }
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  if (ios) el.innerHTML = '<b>Add to Home Screen:</b> tap the Share button in Safari, then “Add to Home Screen”. Sunder then opens full-screen and works offline.';
-  else if (state.deferredInstall) el.innerHTML = '<b>Install:</b> tap the Install button at the top to add Sunder to your home screen.';
+  if (ios) el.innerHTML = '<b>Add to Home Screen:</b> tap the Share button in Safari, then “Add to Home Screen”. SignalSize then opens full-screen and works offline.';
+  else if (state.deferredInstall) el.innerHTML = '<b>Install:</b> tap the Install button at the top to add SignalSize to your home screen.';
   else el.innerHTML = '<b>Add to Home Screen:</b> open the browser menu (⋮) and choose “Add to Home screen” / “Install app”.';
 }
 
@@ -818,7 +818,7 @@ async function handleUrlParams() {
   const tab = params.get('tab'); if (tab && ['size', 'manage', 'settings'].includes(tab)) showTab(tab);
   if (params.get('shared') === '1') {
     try {
-      const cache = await caches.open('sunder-share'); const base = new URL('./', location.href).href;
+      const cache = await caches.open('signalsize-share'); const base = new URL('./', location.href).href;
       const tRes = await cache.match(`${base}shared-text`);
       if (tRes) { const txt = await tRes.text(); if (txt.trim()) setText(txt); await cache.delete(`${base}shared-text`); }
       const iRes = await cache.match(`${base}shared-image`);
